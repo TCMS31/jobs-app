@@ -1,5 +1,5 @@
 import { useCallback, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { Alert, Button, Link } from '@mui/material';
 import { AuthContext } from 'contexts/AuthContext';
 import { Form, Formik, FormikHelpers } from 'formik';
@@ -58,7 +58,7 @@ export const SigninForm = (): JSX.Element => {
           </Form>
         )}
       </Formik>
-      <Link href={routes.signup} variant="body2" underline="hover">
+      <Link component={RouterLink} to={routes.signup} variant="body2" underline="hover">
         Don&apos;t have an account? Sign Up
       </Link>
     </>

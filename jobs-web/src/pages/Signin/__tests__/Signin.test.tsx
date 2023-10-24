@@ -45,6 +45,14 @@ describe('<Signin />', () => {
     expect(screen.getByRole('link', { name: "Don't have an account? Sign Up" })).toHaveAttribute('href', routes.signup);
   });
 
+  it('moves to sign-up through the router instead of reloading the page', () => {
+    renderComponent();
+
+    userEvent.click(screen.getByRole('link', { name: "Don't have an account? Sign Up" }));
+
+    expect(history.location.pathname).toBe(routes.signup);
+  });
+
   it('validates required and malformed fields', async () => {
     renderComponent();
 
