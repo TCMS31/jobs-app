@@ -12,9 +12,18 @@ employer side, no job creation, no profile page.
 | --- | --- | --- |
 | ![Applied state](docs/screenshots/02-applied-state.png) | ![Sign in](docs/screenshots/03-sign-in.png) | ![Job card](docs/screenshots/04-job-card-applied.png) |
 
-All four were captured by [`docs/e2e-walkthrough.js`](docs/e2e-walkthrough.js) driving the
-real app with Playwright at 1440x900 against a seeded database — not mockups. Its output is
+| Phone, listings | Phone, sign in |
+| --- | --- |
+| ![Listings at 390px](docs/screenshots/05-mobile-listings.png) | ![Sign in at 390px](docs/screenshots/06-mobile-sign-in.png) |
+
+All six were captured by [`docs/e2e-walkthrough.js`](docs/e2e-walkthrough.js) driving the
+real app with Playwright, at 1440x900 and 390x844, against a seeded database. Its output is
 in [`docs/e2e-walkthrough.txt`](docs/e2e-walkthrough.txt).
+
+The look is a noticeboard rather than a dashboard: warm paper, near-black ink, one pine-green
+accent reserved for the only action the app offers, Source Serif 4 for headings and Public
+Sans for text. Listings are a single readable column of `<article>` elements, each named by
+its title; an applied role gets a rule down its left edge.
 
 ## About the demo data
 
@@ -26,10 +35,6 @@ correspondingly thin — title, description, experience level, employment type, 
 No company, location, salary or closing date, so this is not a model of a real job posting
 and should not be read as one. It exists to give the listing, the paging and the applied
 state something to render.
-
-One leftover is worth naming rather than hiding: `jobs-web/package-lock.json` still records
-the package name `blogs-web`, from the starter the client was built on — no effect on the
-build, but it is there if you go looking.
 
 ## The data model
 
@@ -122,14 +127,37 @@ without duplicating` (five simultaneous requests, all expected to return 200) an
 
 ## Running it
 
-Needs Node 18.16 or newer and a PostgreSQL 14+ you can write to. Verified here on Node
-22.22 against PostgreSQL 17.
+### With Docker Compose (one command path)
+
+Needs Docker with Compose v2. Nothing else: Postgres, migrations, the API and the built
+client all run in containers.
+
+```bash
+cp .env.example .env
+# set JWT_KEY in .env, e.g. to the output of: openssl rand -hex 32
+docker compose up -d --build --wait               # db, one-shot migrate, api :8080, web :3000
+docker compose --profile seed run --rm seed       # 6 users, 12 roles, 21 applications
+```
+
+Open http://localhost:3000 and sign in with a seeded demo account:
+`johndoe@example.com` / `abcd1234`. `docker compose down -v` removes everything, including
+the database volume.
+
+The API image is multi-stage on `node:22-alpine`, runs as the unprivileged `node` user and
+has a healthcheck on `/api/health`; Compose adds `init: true` so the graceful shutdown in
+`server.ts` gets its signals. The web image builds the bundle and serves it from nginx on
+port 8080 as a non-root user, with an SPA `try_files` fallback. `migrate` is a one-shot
+service the API waits on.
+
+### Without Docker
+
+Needs Node 22 (`.nvmrc`), yarn 1 and a PostgreSQL 14+ you can write to.
 
 ```bash
 cd jobs-server
-cp .env.example .env            # then set JWT_KEY — the server refuses to boot without it
-yarn install && yarn prisma migrate deploy
-yarn seed                       # 6 users, 12 roles, 21 applications
+cp .env.example .env            # set JWT_KEY and point DATABASE_URL at your database
+yarn install && yarn migrate
+yarn seed
 yarn dev                        # http://localhost:8080
 
 cd ../jobs-web                  # second terminal
@@ -137,11 +165,78 @@ cp .env.example .env
 yarn install && yarn start      # http://localhost:3000
 ```
 
-Sign in with a seeded demo account: `johndoe@example.com` / `abcd1234`.
-
 `JWT_KEY` has no default and no fallback: `src/config/env.ts` reads it at import and throws
 if it is missing, so a misconfigured process fails at boot rather than issuing tokens it
-cannot verify. Generate one with `openssl rand -hex 32`.
+cannot verify.
+
+## The API, by example
+
+Every response uses one envelope: `{ "payload": … }` on success, `{ "payload": {},
+"message": "…" }` on failure. Protected routes take the token in an `authtoken` header or
+as `Authorization: Bearer …`. Captured against the Compose stack above (token shortened):
+
+```bash
+$ curl -s localhost:8080/api/health
+{"status":"ok"}
+
+$ curl -s -X POST localhost:8080/api/auth/signup -H 'Content-Type: application/json' \
+    -d '{"name":"Rosa Mendes","email":"rosa@example.com","password":"correct-horse"}'
+{"payload":{}}                                                    # 200
+# the same request again
+{"payload":{},"message":"User already exists"}                    # 409
+
+$ curl -s -X POST localhost:8080/api/auth/login -H 'Content-Type: application/json' \
+    -d '{"email":"johndoe@example.com","password":"abcd1234"}'
+{"payload":{"authtoken":"eyJhbG…42bI","userId":"54d282d2-e35e-4efa-a212-33f65e8b8f29","name":"John Doe"}}
+```
+
+```bash
+$ curl -s 'localhost:8080/api/jobs?limit=2' -H "authtoken: $TOKEN"
+```
+
+```json
+{
+  "payload": {
+    "jobs": [
+      {
+        "id": "e3ab44bc-ad2a-41ab-a31c-7008f09c4ccc",
+        "title": "Engineering Manager",
+        "description": "Lead a team of six working on the core marketplace. …",
+        "experienceLevel": "Lead",
+        "employmentType": "Full-Time",
+        "createdAt": "2026-11-07T10:29:09.133Z",
+        "applicantCount": 3,
+        "hasApplied": true
+      },
+      {
+        "id": "d8897dd8-8182-4f60-8e16-47523e9b5552",
+        "title": "Security Engineer",
+        "description": "Run the application security programme: …",
+        "experienceLevel": "Senior",
+        "employmentType": "Full-Time",
+        "createdAt": "2026-11-06T10:29:09.133Z",
+        "applicantCount": 4,
+        "hasApplied": false
+      }
+    ],
+    "nextCursor": "d8897dd8-8182-4f60-8e16-47523e9b5552"
+  }
+}
+```
+
+Pass `nextCursor` back as `?cursor=` for the next page; `?title=engineer` filters
+case-insensitively. Applying, twice in a row, and then to a job that does not exist:
+
+```bash
+$ curl -s -X POST localhost:8080/api/jobs/apply -H "authtoken: $TOKEN" \
+    -H 'Content-Type: application/json' -d '{"jobId":"d8897dd8-8182-4f60-8e16-47523e9b5552"}'
+{"payload":{"jobId":"d8897dd8-8182-4f60-8e16-47523e9b5552","hasApplied":true}}   # 200
+{"payload":{"jobId":"d8897dd8-8182-4f60-8e16-47523e9b5552","hasApplied":true}}   # 200 again
+{"payload":{},"message":"Job not found"}                                         # 404
+```
+
+Without a token, or with a token whose account has since been deleted, the answer is
+`{"payload":{},"message":"Unauthorized user"}` with a 401, and the client returns to sign-in.
 
 ## Environment
 
@@ -149,7 +244,7 @@ cannot verify. Generate one with `openssl rand -hex 32`.
 
 | Variable | Required | Default | Purpose |
 | --- | --- | --- | --- |
-| `JWT_KEY` | **yes** | none | Secret used to sign and verify JWTs. Throws on boot if unset. |
+| `JWT_KEY` | **yes** | none | Secret used to sign and verify JWTs (HS256). Throws on boot if unset. |
 | `DATABASE_URL` | **yes** | none | Postgres connection string for Prisma. |
 | `PORT` | no | `8080` | Port the API listens on. |
 | `REACT_APP_URL` | no | `http://localhost:3000` | Origin allowed by CORS. |
@@ -180,9 +275,8 @@ Defaults and comments are in [`.env.example`](.env.example).
 | build | `yarn build` → `dist/` | `yarn build` |
 | other | `yarn migrate`, `yarn seed`, `yarn benchmark` | `yarn coverage` |
 
-**61 tests across 7 files** — 31 on the API (mocha, chai, supertest) and 30 on the client
-(Jest and React Testing Library). Last run here: `31 passing (3s)`, and
-`Test Suites: 5 passed / Tests: 30 passed`.
+**67 tests**: 33 on the API (mocha, chai, supertest) and 34 on the client (Jest and React
+Testing Library). Last run: `33 passing (3s)` and `Test Suites: 5 passed / Tests: 34 passed`.
 
 The API tests are integration tests and write real rows. Set `TEST_DATABASE_URL` to a
 throwaway database so a run cannot leave fixtures in your development data; the suites
@@ -237,6 +331,11 @@ unexpected 500 is logged in full and answered generically, while 4xx keep their 
 `src/lib/prisma.ts` exports the single client every service imports, so the process holds
 one connection pool.
 
+**Uniqueness is the database's job, twice.** Sign-up does not look the email up first: it
+inserts, and the unique index turns a second, simultaneous sign-up into a 409 rather than a
+500. Applying works the same way on `(userId, jobId)`. Password hashing uses bcrypt's async
+API so a sign-in does not hold the event loop for the ~60 ms a hash costs.
+
 **The session has exactly one home.** `jobs-web/src/services/authStorage.ts` is the source
 of truth and `isAuthenticated` is derived from the stored token, so the two cannot
 disagree. A 401 from any request clears the session through the axios response interceptor
@@ -283,23 +382,6 @@ jobs-web/src/
 docs/          screenshots · e2e-walkthrough.{js,txt} · listing-benchmark.txt
 ```
 
-## Docker: authored, not verified
-
-`jobs-server/Dockerfile` (multi-stage, alpine, non-root `node` user, tini as PID 1 so the
-graceful shutdown in `server.ts` receives signals, healthcheck on `/api/health`),
-`jobs-web/Dockerfile` (build → nginx on port 8080 as a non-root user, SPA `try_files`
-fallback), and a `docker-compose.yml` with a `pg_isready` healthcheck, a one-shot `migrate`
-service the API waits on, and an optional `seed` profile.
-
-**Build verified: NOT RUN — deferred, Docker off. Boot verified: NOT RUN — deferred,
-Docker off.** The daemon was unavailable where this was written, so only
-`docker compose config` — which parses and starts nothing — was run, for both the default
-and the `seed` profile. Treat the images as unbuilt.
-
-Once someone does: `cp .env.example .env` (set `JWT_KEY`), then
-`docker compose up --build` — the one-shot `migrate` service runs first — and
-`docker compose --profile seed up seed` for the demo rows.
-
 ## Out of scope
 
 - **No employer side.** Roles come from the seed script or directly from the database.
@@ -316,5 +398,8 @@ Once someone does: `cp .env.example .env` (set `JWT_KEY`), then
   a CSRF strategy — a change to the auth design, not made here.
 - **No rate limiting** on sign-in or sign-up. Unknown-email and wrong-password take the
   same path and return the same message, but brute force is unthrottled.
+- **The client is still on Create React App.** `react-scripts` 5 pins TypeScript 4.9 and
+  carries known advisories in its build tooling (they do not ship in the bundle). Moving to
+  Vite is the next step for the client and was not part of this pass.
 - **Applicant counts are aggregated per request,** not cached. **The API tests need a real
   PostgreSQL** — they are integration tests by design.
