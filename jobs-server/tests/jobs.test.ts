@@ -194,6 +194,19 @@ describe('POST /api/jobs/apply', () => {
     expect(response.body.message).to.equal('Job not found');
   });
 
+  it('answers 401, not 500, when the token outlives its account', async () => {
+    await prisma.user.delete({ where: { id: bob.id } });
+
+    const response = await api()
+      .post('/api/jobs/apply')
+      .set('authtoken', bob.authtoken)
+      .send({ jobId })
+      .expect(RESPONSE_CODES.authorizationError);
+
+    expect(response.body.message).to.equal('Unauthorized user');
+    expect(await prisma.application.count({ where: { jobId } })).to.equal(0);
+  });
+
   it('rejects a jobId that is not a uuid', async () => {
     await api()
       .post('/api/jobs/apply')

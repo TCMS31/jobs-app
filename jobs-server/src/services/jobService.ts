@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 
 import { env } from '../config/env';
-import { NotFoundError } from '../errors/httpError';
+import { NotFoundError, UnauthorizedError } from '../errors/httpError';
 import { JobPage, JobSummary, ListJobsOptions } from '../interfaces/job';
 import { prisma } from '../lib/prisma';
 
@@ -94,10 +94,24 @@ export const applyToJob = async (userId: string, jobId: string): Promise<void> =
   try {
     await prisma.application.create({ data: { userId, jobId } });
   } catch (error) {
-    // P2002 is the unique (userId, jobId) constraint: another request for the same user
-    // and job won the race. That is the outcome we wanted, so report success.
-    if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
       throw error;
     }
+
+    // P2002 is the unique (userId, jobId) constraint: another request for the same user
+    // and job won the race. That is the outcome we wanted, so report success.
+    if (error.code === 'P2002') {
+      return;
+    }
+
+    // P2003 is a foreign key: either the token outlived its account, or the job was
+    // deleted between the look-up above and this insert.
+    if (error.code === 'P2003') {
+      throw String(error.meta?.field_name).includes('userId')
+        ? new UnauthorizedError('Unauthorized user')
+        : new NotFoundError('Job not found');
+    }
+
+    throw error;
   }
 };
