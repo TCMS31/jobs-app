@@ -77,6 +77,6 @@
   },
   "description": "React client for the jobs board: browse listings and apply.",
   "engines": {
-    "node": ">=18.16"
+    "node": ">=22 <23"
   }
 }

@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---- build ------------------------------------------------------------------
-FROM node:18.16-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 
 COPY package.json yarn.lock ./
@@ -15,10 +15,13 @@ COPY src ./src
 # supplied here rather than at container start.
 ARG REACT_APP_API_URL="http://localhost:8080/api"
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
+# .eslintrc.js is not copied in, so CRA's built-in lint would run without the project's
+# plugins and fail on their disable comments. `yarn lint` is the lint step, not the image.
+ENV DISABLE_ESLINT_PLUGIN=true
 RUN yarn build
 
 # ---- runtime ----------------------------------------------------------------
-FROM nginx:1.25-alpine AS runtime
+FROM nginx:1.27-alpine AS runtime
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/build /usr/share/nginx/html

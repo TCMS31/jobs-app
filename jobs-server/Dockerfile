@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---- dependencies -----------------------------------------------------------
-FROM node:18.16-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache python3 make g++
 COPY package.json yarn.lock ./
@@ -16,7 +16,7 @@ COPY src ./src
 RUN yarn prisma generate && yarn build
 
 # ---- production dependencies only -------------------------------------------
-FROM node:18.16-alpine AS prod-deps
+FROM node:22-alpine AS prod-deps
 WORKDIR /app
 RUN apk add --no-cache python3 make g++
 COPY package.json yarn.lock ./
@@ -25,7 +25,7 @@ COPY prisma ./prisma
 RUN yarn prisma generate
 
 # ---- runtime ----------------------------------------------------------------
-FROM node:18.16-alpine AS runtime
+FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
