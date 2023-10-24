@@ -1,0 +1,11 @@
+$ WEB_URL=http://localhost:3000 node docs/e2e-walkthrough.js
+[route-guard] GET /jobs while signed out -> /signin
+[bad-login] message="Invalid email/password" path=/signin
+[login] landed on /jobs
+[token-header] authenticated calls=2 all carried a token=true
+[apply] "Security Engineer": apply buttons 8 -> 7
+[apply-count] applicants line now: 5 applicants
+[persistence] after reload "Security Engineer" still shows Applied = true
+[logout] path=/signin auth cookies remaining=0
+[route-guard-after-logout] GET /jobs -> /signin
+[console] browser console errors: ["Failed to load resource: the server responded with a status of 401 (Unauthorized)"]

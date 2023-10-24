@@ -1,0 +1,12 @@
+$ DATABASE_URL=postgresql://…/jobs-db-bench PORT=8772 yarn benchmark
+Building fixtures, this takes a moment…
+
+Dataset                                             500 jobs, 200 users, 25000 applications
+Runs per measurement (median reported)              15
+BEFORE  listing query, all rows + applicant arrays  28.1 ms
+BEFORE  JSON response size                          1151.8 KiB
+BEFORE  applicant ids disclosed to the caller       25000
+AFTER   GET /api/jobs over HTTP, one page of 20     2.2 ms
+AFTER   HTTP response size                          7.7 KiB
+AFTER   applicant ids disclosed to the caller       0
+

@@ -1,0 +1,75 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-jobs}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jobs}
+      POSTGRES_DB: ${POSTGRES_DB:-jobs-db}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-jobs} -d ${POSTGRES_DB:-jobs-db}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # One-shot: applies pending Prisma migrations, then exits. Built from the `build` stage
+  # because that is the layer that still has the Prisma CLI.
+  migrate:
+    build:
+      context: ./jobs-server
+      target: build
+    command: ['yarn', 'prisma', 'migrate', 'deploy']
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-jobs}:${POSTGRES_PASSWORD:-jobs}@db:5432/${POSTGRES_DB:-jobs-db}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: 'no'
+
+  # Optional sample data: `docker compose --profile seed up seed`.
+  seed:
+    profiles: ['seed']
+    build:
+      context: ./jobs-server
+      target: build
+    command: ['yarn', 'prisma', 'db', 'seed']
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-jobs}:${POSTGRES_PASSWORD:-jobs}@db:5432/${POSTGRES_DB:-jobs-db}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: 'no'
+
+  api:
+    build:
+      context: ./jobs-server
+    environment:
+      PORT: 8080
+      DATABASE_URL: postgresql://${POSTGRES_USER:-jobs}:${POSTGRES_PASSWORD:-jobs}@db:5432/${POSTGRES_DB:-jobs-db}
+      # No default: the API refuses to boot without a signing key.
+      JWT_KEY: ${JWT_KEY:?set JWT_KEY in .env, e.g. openssl rand -hex 32}
+      REACT_APP_URL: ${WEB_ORIGIN:-http://localhost:3000}
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - '${API_PORT:-8080}:8080'
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./jobs-web
+      args:
+        REACT_APP_API_URL: ${PUBLIC_API_URL:-http://localhost:8080/api}
+    depends_on:
+      - api
+    ports:
+      - '${WEB_PORT:-3000}:8080'
+    restart: unless-stopped
+
+volumes:
+  db-data:

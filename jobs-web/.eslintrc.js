@@ -1,0 +1,240 @@
+module.exports = {
+  root: true,
+  // 'prettier' comes last so it can switch off the formatting rules the other configs turn on.
+  extends: ['react-app', 'react-app/jest', 'plugin:react-hooks/recommended', 'plugin:jsx-a11y/recommended', 'prettier'],
+  plugins: ['prettier', 'simple-import-sort', '@typescript-eslint', 'jsx-a11y'],
+  globals: {
+    localStorage: true,
+    window: true,
+  },
+  env: {
+    browser: true,
+  },
+  settings: {
+    'import/resolver': {
+      node: {
+        paths: ['src'],
+        moduleDirectory: ['node_modules', 'src/'],
+        extensions: ['.js', '.jsx', '.ts', '.tsx'],
+      },
+    },
+  },
+  rules: {
+    'array-callback-return': 'off',
+    'arrow-parens': 'off',
+    camelcase: 'off',
+    'comma-dangle': 'off',
+    curly: 'error',
+    'default-param-last': 1,
+    'import/extensions': 'off',
+    'import/no-extraneous-dependencies': 'off',
+    'import/no-named-as-default': 0,
+    'import/no-named-as-default-member': 0,
+    'import/prefer-default-export': 'off',
+    'jest/no-focused-tests': 'error',
+    'arrow-body-style': 'error',
+    'jsx-a11y/label-has-associated-control': [
+      'error',
+      {
+        required: {
+          some: ['nesting', 'id'],
+        },
+      },
+    ],
+    'jsx-a11y/label-has-for': [
+      'error',
+      {
+        required: {
+          some: ['nesting', 'id'],
+        },
+      },
+    ],
+    'max-params': ['error', 3],
+    'no-param-reassign': 'off',
+    'no-restricted-syntax': ['error', 'LabeledStatement', 'WithStatement'],
+    'no-shadow': 'off',
+    'no-tabs': 'error',
+    'no-unused-vars': 'error',
+    'no-plusplus': 'off',
+    'padding-line-between-statements': [
+      'error',
+      {
+        blankLine: 'always',
+        prev: '*',
+        next: 'return',
+      },
+      {
+        blankLine: 'always',
+        prev: ['const', 'let', 'var'],
+        next: [
+          'block',
+          'block-like',
+          'break',
+          'case',
+          'cjs-export',
+          'cjs-import',
+          'class',
+          'continue',
+          'debugger',
+          'default',
+          'directive',
+          'do',
+          'empty',
+          'export',
+          'expression',
+          'for',
+          'function',
+          'if',
+          'iife',
+          'import',
+          'multiline-block-like',
+          'multiline-expression',
+          'return',
+          'switch',
+          'throw',
+          'try',
+          'while',
+          'with',
+        ],
+      },
+      {
+        blankLine: 'never',
+        prev: ['const', 'let', 'var'],
+        next: ['const', 'let', 'var'],
+      },
+      {
+        blankLine: 'always',
+        prev: '*',
+        next: ['if', 'try', 'while', 'switch'],
+      },
+      {
+        blankLine: 'always',
+        prev: ['if', 'try', 'while', 'switch'],
+        next: '*',
+      },
+    ],
+    'prettier/prettier': 'error',
+    'react-hooks/exhaustive-deps': 'error',
+    'react-hooks/rules-of-hooks': 'error',
+    'react/destructuring-assignment': 1,
+    'react/forbid-prop-types': 'warn',
+    'react/function-component-definition': [
+      2,
+      {
+        namedComponents: 'arrow-function',
+      },
+    ],
+    'react/jsx-filename-extension': [0],
+    'react/jsx-no-useless-fragment': 2,
+    'react/jsx-props-no-spreading': 'off',
+    'react/no-unused-prop-types': 1,
+    'simple-import-sort/exports': 'error',
+    'simple-import-sort/imports': [
+      'error',
+      {
+        groups: [
+          ['^react', '^@?\\w'],
+          ['^test-utils'],
+          [
+            '^(@|domains|shared|actions|assets|components|constants|containers|fixtures|helpers|hooks|reducers|routes|selectors|services|stylesheets|translations)(/.*|$)',
+          ],
+          ['^\\u0000'],
+          ['^\\.\\.(?!/?$)', '^\\.\\./?$'],
+          ['^\\./(?=.*/)(?!/?$)', '^\\.(?!/?$)', '^\\./?$'],
+          ['^.+\\.s?css$'],
+        ],
+      },
+    ],
+    'testing-library/await-async-query': 1,
+    'testing-library/await-async-utils': 1,
+    'testing-library/no-await-sync-query': 1,
+    'testing-library/no-debugging-utils': 1,
+    'testing-library/no-dom-import': 0,
+    'testing-library/no-node-access': 1,
+    'testing-library/no-render-in-setup': 2,
+    'testing-library/no-unnecessary-act': 0,
+    'testing-library/no-wait-for-multiple-assertions': 1,
+    'testing-library/no-wait-for-side-effects': 1,
+    'testing-library/prefer-find-by': 1,
+    'testing-library/prefer-presence-queries': 2,
+  },
+  overrides: [
+    {
+      files: ['*.ts', '*.tsx'],
+      parser: '@typescript-eslint/parser',
+      parserOptions: {
+        project: ['./tsconfig.json'],
+      },
+      extends: ['plugin:@typescript-eslint/recommended', 'plugin:react/jsx-runtime'],
+      rules: {
+        '@typescript-eslint/explicit-function-return-type': [
+          'error',
+          {
+            allowExpressions: true,
+            allowTypedFunctionExpressions: true,
+            allowHigherOrderFunctions: true,
+          },
+        ],
+        '@typescript-eslint/naming-convention': [
+          'warn',
+          {
+            selector: 'default',
+            format: ['camelCase'],
+          },
+          {
+            selector: 'variable',
+            format: ['camelCase', 'PascalCase', 'UPPER_CASE'],
+          },
+          {
+            selector: ['variable', 'parameter'],
+            types: ['boolean'],
+            format: ['PascalCase', 'UPPER_CASE'],
+            prefix: ['is', 'should', 'has', 'have', 'with', 'can', 'did', 'will', 'does', 'are', 'do', 'WITH_', 'IS_'],
+            filter: {
+              regex: '(.*ed[A-Z].*|ed)$',
+              match: false,
+            },
+          },
+          {
+            selector: 'parameter',
+            format: ['camelCase'],
+            leadingUnderscore: 'allow',
+          },
+          {
+            selector: 'typeLike',
+            format: ['PascalCase'],
+          },
+          {
+            selector: 'interface',
+            format: ['PascalCase'],
+          },
+          {
+            selector: 'enum',
+            format: ['PascalCase'],
+          },
+          {
+            selector: 'enumMember',
+            format: ['UPPER_CASE'],
+          },
+          {
+            selector: 'property',
+            format: ['camelCase', 'PascalCase'],
+          },
+        ],
+        '@typescript-eslint/no-shadow': ['error'],
+        '@typescript-eslint/no-unused-vars': 'warn',
+        '@typescript-eslint/prefer-enum-initializers': 'error',
+        'consistent-return': 'off',
+        'import/prefer-default-export': 'off',
+        'no-unused-vars': [
+          'error',
+          {
+            args: 'after-used',
+            argsIgnorePattern: '_',
+          },
+        ],
+        'react/require-default-props': 'off',
+      },
+    },
+  ],
+};

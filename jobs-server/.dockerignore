@@ -1,0 +1,15 @@
+node_modules
+dist
+coverage
+tests
+scripts
+.git
+.gitignore
+.env
+.env.*
+*.log
+.eslintrc.json
+.prettierrc.json
+.mocharc.json
+Dockerfile
+.dockerignore
