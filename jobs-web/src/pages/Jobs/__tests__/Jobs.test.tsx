@@ -149,6 +149,34 @@ describe('<Jobs />', () => {
     expect(axios.get).toHaveBeenLastCalledWith('/jobs', { params: { cursor: 'cursor-1' } });
   });
 
+  it('keeps the loaded roles when the next page fails', async () => {
+    (axios.get as jest.Mock)
+      .mockResolvedValueOnce({ data: { payload: { jobs: mockedJobs, nextCursor: 'cursor-1' } } })
+      .mockRejectedValueOnce({ isAxiosError: true, response: { status: 500, data: {} } });
+
+    renderComponent();
+
+    userEvent.click(await screen.findByRole('button', { name: 'Load more roles' }));
+
+    expect(await screen.findByText('Could not load more roles.')).toBeInTheDocument();
+    mockedJobs.forEach((job) => expect(screen.getByText(job.title)).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Load more roles' })).toBeEnabled();
+  });
+
+  it('shows the loading state again while a retry is in flight', async () => {
+    (axios.get as jest.Mock).mockRejectedValueOnce({ isAxiosError: true, response: { status: 500, data: {} } });
+    renderComponent();
+
+    const retry = await screen.findByRole('button', { name: 'Retry' });
+
+    resolveJobs();
+    userEvent.click(retry);
+
+    expect(screen.getByLabelText('Loading job listings')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+    expect(await screen.findByText(mockedJobs[0].title)).toBeInTheDocument();
+  });
+
   it('signs the user out from the header', async () => {
     resolveJobs();
     renderComponent();

@@ -15,24 +15,26 @@ export const Jobs = (): JSX.Element => {
   const [status, setStatus] = useState<Status>('loading');
   const [error, setError] = useState<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const load = useCallback(async (cursor: string | null) => {
-    try {
-      const { data } = await getJobs({ cursor });
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  const loadFirstPage = useCallback(async () => {
+    setStatus('loading');
+    setError(null);
 
-      setJobs((current) => (cursor ? [...current, ...data.payload.jobs] : data.payload.jobs));
+    try {
+      const { data } = await getJobs();
+
+      setJobs(data.payload.jobs);
       setNextCursor(data.payload.nextCursor);
       setStatus('ready');
     } catch (loadError) {
-      // Previously this threw inside an async effect, which React could not catch: the
-      // page stayed blank with an unhandled rejection in the console and no message.
       setError(messageFrom(loadError, 'Could not load job listings.'));
       setStatus('error');
     }
   }, []);
 
   useEffect(() => {
-    void load(null);
-  }, [load]);
+    void loadFirstPage();
+  }, [loadFirstPage]);
 
   const handleApplied = useCallback((jobId: string) => {
     setJobs((current) =>
@@ -41,11 +43,22 @@ export const Jobs = (): JSX.Element => {
       )
     );
   }, []);
+  // A failed next page keeps the roles already on screen; only the button area reports it.
   const handleLoadMore = useCallback(async () => {
     setIsLoadingMore(true);
-    await load(nextCursor);
-    setIsLoadingMore(false);
-  }, [load, nextCursor]);
+    setLoadMoreError(null);
+
+    try {
+      const { data } = await getJobs({ cursor: nextCursor });
+
+      setJobs((current) => [...current, ...data.payload.jobs]);
+      setNextCursor(data.payload.nextCursor);
+    } catch (loadError) {
+      setLoadMoreError(messageFrom(loadError, 'Could not load more roles.'));
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [nextCursor]);
 
   return (
     <>
@@ -70,7 +83,7 @@ export const Jobs = (): JSX.Element => {
           <Alert
             severity="error"
             action={
-              <Button color="inherit" size="small" onClick={() => void load(null)}>
+              <Button color="inherit" size="small" onClick={() => void loadFirstPage()}>
                 Retry
               </Button>
             }
@@ -92,7 +105,8 @@ export const Jobs = (): JSX.Element => {
             </Grid>
 
             {nextCursor && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, mt: 4 }}>
+                {loadMoreError && <Alert severity="error">{loadMoreError}</Alert>}
                 <Button variant="outlined" onClick={handleLoadMore} disabled={isLoadingMore}>
                   {isLoadingMore ? 'Loading…' : 'Load more roles'}
                 </Button>
