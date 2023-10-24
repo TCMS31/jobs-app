@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Box, Button, CircularProgress, Container, Grid, Typography } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Container, Typography } from '@mui/material';
 import { JobType } from 'types/job';
 
 import { Header } from 'components/Header/Header';
@@ -63,13 +63,16 @@ export const Jobs = (): JSX.Element => {
   return (
     <>
       <Header />
-      <Container maxWidth="lg" sx={{ py: 5 }}>
-        <Box sx={{ mb: 4 }}>
-          <Typography component="h1" variant="h1" gutterBottom>
+      <Container component="main" maxWidth="md" sx={{ py: { xs: 4, sm: 6 } }}>
+        <Box component="section" aria-labelledby="open-roles-heading" sx={{ mb: 3 }}>
+          <Typography variant="overline" color="secondary">
+            Now hiring
+          </Typography>
+          <Typography id="open-roles-heading" component="h1" variant="h1" gutterBottom>
             Open roles
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Browse the latest listings and apply in one click.
+            Newest first. Apply in one click; a role you have applied to stays marked.
           </Typography>
         </Box>
 
@@ -98,11 +101,11 @@ export const Jobs = (): JSX.Element => {
 
         {status === 'ready' && jobs.length > 0 && (
           <>
-            <Grid container spacing={3}>
+            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
               {jobs.map((job) => (
                 <Job key={job.id} job={job} onApplied={handleApplied} />
               ))}
-            </Grid>
+            </Box>
 
             {nextCursor && (
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, mt: 4 }}>

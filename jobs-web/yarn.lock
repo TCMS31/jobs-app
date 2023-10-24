@@ -1545,10 +1545,15 @@
   resolved "https://registry.npmjs.org/@eslint/js/-/js-8.44.0.tgz"
   integrity sha512-Ag+9YM4ocKQx9AarydN0KY2j0ErMHNIocPDrVo8zAE44xLTjEtz81OdR68/cydGtk6m6jDb5Za3r2useMzYmSw==
 
-"@fontsource/roboto@^5.0.5":
-  version "5.0.5"
-  resolved "https://registry.npmjs.org/@fontsource/roboto/-/roboto-5.0.5.tgz"
-  integrity sha512-IMXFq5AMgGx0sgNLfwWsmPuy3qa7lmDmQcXXihqwF4mT2UpD725cbxZj93ERY793OWon+6V1ANax02I3nt9+4w==
+"@fontsource/public-sans@^5.3.0":
+  version "5.3.0"
+  resolved "https://registry.yarnpkg.com/@fontsource/public-sans/-/public-sans-5.3.0.tgz#aa038717a4dede53ad69a1766c5e8d18a8100e19"
+  integrity sha512-kjODI0S3zdv0mBYCIQ8TbBayaiqszpc2UbhJiO3bjIqVVXzcWfHSt2o3WBCLOY3juaGaQoy4MoWCcgmfI5hCuA==
+
+"@fontsource/source-serif-4@^5.3.1":
+  version "5.3.1"
+  resolved "https://registry.yarnpkg.com/@fontsource/source-serif-4/-/source-serif-4-5.3.1.tgz#5e18891c59e9ca900020d4c362c1f0a66a3e1fd5"
+  integrity sha512-cWcTCXjYYrgF9A67fThVir1VSc0lPEYmwQ6jA4pPt01s2MSCi/maINUcZoCzaqnU8fyUReDO97eGcBUkHgOeug==
 
 "@humanwhocodes/config-array@^0.11.10":
   version "0.11.10"

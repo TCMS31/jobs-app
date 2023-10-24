@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import { Box, Button, Card, CardContent, Chip, Grid, Stack, Typography } from '@mui/material';
+import CheckIcon from '@mui/icons-material/Check';
+import { Box, Button, Chip, Stack, Typography } from '@mui/material';
 import { JobType } from 'types/job';
 
 import { messageFrom } from 'services/errorMessage';
@@ -17,6 +17,7 @@ const formatDate = (value: string): string =>
 export const Job = ({ job, onApplied }: Props): JSX.Element => {
   const [isApplying, setIsApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const headingId = `job-${job.id}-title`;
   const handleApply = useCallback(async () => {
     setIsApplying(true);
     setError(null);
@@ -32,51 +33,74 @@ export const Job = ({ job, onApplied }: Props): JSX.Element => {
   }, [job.id, onApplied]);
 
   return (
-    <Grid item xs={12} md={6}>
-      <Card sx={{ height: '100%', display: 'flex' }}>
-        <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          <Box>
-            <Typography component="h2" variant="h2" gutterBottom>
-              {job.title}
-            </Typography>
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-              <Chip size="small" color="primary" variant="outlined" label={job.experienceLevel} />
-              <Chip size="small" variant="outlined" label={job.employmentType} />
-              <Chip size="small" variant="outlined" label={`Posted ${formatDate(job.createdAt)}`} />
-            </Stack>
-          </Box>
-
-          <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>
-            {job.description}
+    <Box
+      component="article"
+      aria-labelledby={headingId}
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: '1fr', sm: '1fr auto' },
+        columnGap: 4,
+        rowGap: 2,
+        py: 3,
+        borderTop: 1,
+        borderColor: 'divider',
+        borderLeft: 4,
+        borderLeftColor: job.hasApplied ? 'primary.main' : 'transparent',
+        pl: { xs: 2, sm: 3 },
+      }}
+    >
+      <Box sx={{ minWidth: 0 }}>
+        <Typography id={headingId} component="h2" variant="h2">
+          {job.title}
+        </Typography>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+          <Chip size="small" label={job.experienceLevel} sx={{ bgcolor: '#e6efe9', color: 'primary.dark' }} />
+          <Chip size="small" variant="outlined" label={job.employmentType} />
+          <Typography component="span" variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
+            Posted <time dateTime={job.createdAt}>{formatDate(job.createdAt)}</time>
           </Typography>
+        </Stack>
+        <Typography variant="body1" sx={{ mt: 1.5, maxWidth: '62ch' }}>
+          {job.description}
+        </Typography>
+      </Box>
 
-          <Typography variant="caption" color="text.secondary">
-            {job.applicantCount === 1 ? '1 applicant' : `${job.applicantCount} applicants`}
-          </Typography>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'row', sm: 'column' },
+          alignItems: { xs: 'center', sm: 'flex-end' },
+          justifyContent: { xs: 'space-between', sm: 'flex-start' },
+          gap: 1.5,
+          minWidth: { sm: 150 },
+        }}
+      >
+        {job.hasApplied ? (
+          <Button
+            disabled
+            startIcon={<CheckIcon />}
+            variant="outlined"
+            // MUI's disabled grey fails contrast; this state is information, not an inactive control.
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            sx={{ '&.Mui-disabled': { color: 'primary.dark', borderColor: 'primary.main' } }}
+          >
+            Applied
+          </Button>
+        ) : (
+          <Button onClick={handleApply} disabled={isApplying} variant="contained">
+            {isApplying ? 'Applying…' : 'Apply to job'}
+          </Button>
+        )}
+        <Typography variant="body2" color="text.secondary" className="applicant-count">
+          {job.applicantCount === 1 ? '1 applicant' : `${job.applicantCount} applicants`}
+        </Typography>
+      </Box>
 
-          {error && (
-            <Typography variant="body2" color="error" role="alert">
-              {error}
-            </Typography>
-          )}
-
-          {job.hasApplied ? (
-            <Button
-              disabled
-              startIcon={<CheckCircleIcon />}
-              variant="outlined"
-              color="secondary"
-              sx={{ alignSelf: 'flex-start' }}
-            >
-              Applied
-            </Button>
-          ) : (
-            <Button onClick={handleApply} disabled={isApplying} variant="contained" sx={{ alignSelf: 'flex-start' }}>
-              {isApplying ? 'Applying…' : 'Apply to job'}
-            </Button>
-          )}
-        </CardContent>
-      </Card>
-    </Grid>
+      {error && (
+        <Typography variant="body2" color="error" role="alert" sx={{ gridColumn: '1 / -1' }}>
+          {error}
+        </Typography>
+      )}
+    </Box>
   );
 };

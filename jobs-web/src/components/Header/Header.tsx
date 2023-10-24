@@ -1,5 +1,4 @@
 import { useContext } from 'react';
-import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
 import { AppBar, Box, Button, Container, Toolbar, Typography } from '@mui/material';
 import { AuthContext } from 'contexts/AuthContext';
 
@@ -7,11 +6,13 @@ export const Header = (): JSX.Element => {
   const { session, signOut } = useContext(AuthContext);
 
   return (
-    <AppBar position="static" color="primary">
-      <Container maxWidth="lg">
-        <Toolbar disableGutters sx={{ gap: 1.5 }}>
-          <WorkOutlineIcon />
-          <Typography variant="h6" component="span" sx={{ fontWeight: 700, letterSpacing: '.08rem', flexGrow: 1 }}>
+    <AppBar position="static" component="header">
+      <Container maxWidth="md">
+        <Toolbar disableGutters sx={{ gap: 2, minHeight: { xs: 60, sm: 68 } }}>
+          <Typography
+            component="span"
+            sx={{ fontFamily: 'h1.fontFamily', fontSize: '1.375rem', fontWeight: 600, flexGrow: 1 }}
+          >
             Jobs Board
           </Typography>
 
@@ -20,7 +21,12 @@ export const Header = (): JSX.Element => {
               <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' }, opacity: 0.85 }}>
                 Signed in as {session.name || 'you'}
               </Typography>
-              <Button color="inherit" variant="outlined" size="small" onClick={signOut}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={signOut}
+                sx={{ color: 'inherit', borderColor: 'rgba(246, 242, 234, 0.6)' }}
+              >
                 Sign out
               </Button>
             </Box>

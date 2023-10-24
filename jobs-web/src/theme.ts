@@ -1,32 +1,62 @@
 import { createTheme } from '@mui/material/styles';
 
+const ink = '#1f1d18';
+const paper = '#f6f2ea';
+const rule = '#ddd5c6';
+const pine = '#1d5c4a';
+const serif = "'Source Serif 4', Georgia, 'Times New Roman', serif";
+const sans = "'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif";
+
 /**
- * One theme for the whole app. Each screen used to create its own MUI theme (or none at
- * all), so the sign-in pages and the jobs list did not share a palette or type scale.
+ * A noticeboard look: warm paper, near-black ink and a single pine-green accent for the
+ * one action the app offers. Every foreground/background pair here clears WCAG AA.
  */
 export const theme = createTheme({
   palette: {
-    primary: { main: '#1f3a5f' },
-    secondary: { main: '#3f8f6f' },
-    background: { default: '#f5f7fa', paper: '#ffffff' },
-    text: { primary: '#16202e', secondary: '#5a6a7e' },
+    primary: { main: pine, dark: '#144437', contrastText: '#ffffff' },
+    secondary: { main: '#8a4b14', contrastText: '#ffffff' },
+    background: { default: paper, paper: '#fffdf8' },
+    text: { primary: ink, secondary: '#5b554a' },
+    divider: rule,
+    error: { main: '#a3271b' },
   },
-  shape: { borderRadius: 10 },
+  shape: { borderRadius: 6 },
   typography: {
-    fontFamily: "'Roboto', 'Segoe UI', system-ui, sans-serif",
-    h1: { fontSize: '1.75rem', fontWeight: 600 },
-    h2: { fontSize: '1.375rem', fontWeight: 600 },
-    subtitle2: { fontWeight: 500 },
+    fontFamily: sans,
+    h1: { fontFamily: serif, fontSize: '2.25rem', fontWeight: 600, lineHeight: 1.15, letterSpacing: '-0.01em' },
+    h2: { fontFamily: serif, fontSize: '1.375rem', fontWeight: 600, lineHeight: 1.25 },
+    h5: { fontFamily: serif, fontWeight: 600 },
+    overline: { fontWeight: 600, letterSpacing: '0.12em' },
+    button: { textTransform: 'none', fontWeight: 600 },
   },
   components: {
     MuiButton: {
       defaultProps: { disableElevation: true },
-      styleOverrides: { root: { textTransform: 'none', fontWeight: 600 } },
-    },
-    MuiCard: {
       styleOverrides: {
-        root: { border: '1px solid #e3e8ef', boxShadow: 'none' },
+        root: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          '&.Mui-focusVisible': { outline: `3px solid ${pine}`, outlineOffset: 2 },
+        },
       },
+    },
+    MuiLink: {
+      styleOverrides: {
+        root: {
+          color: pine,
+          fontWeight: 600,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          '&:focus-visible': { outline: `3px solid ${pine}`, outlineOffset: 2, borderRadius: 2 },
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: { borderRadius: 4, fontWeight: 500 },
+      },
+    },
+    MuiAppBar: {
+      defaultProps: { elevation: 0 },
+      styleOverrides: { root: { backgroundColor: ink, color: paper } },
     },
   },
 });

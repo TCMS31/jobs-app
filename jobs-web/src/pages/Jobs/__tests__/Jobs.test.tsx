@@ -51,6 +51,16 @@ describe('<Jobs />', () => {
     });
   });
 
+  it('exposes each listing as an article named by its title, inside the main landmark', async () => {
+    resolveJobs();
+    renderComponent();
+
+    await screen.findByText(mockedJobs[0].title);
+
+    expect(screen.getByRole('main')).toBeInTheDocument();
+    mockedJobs.forEach((job) => expect(screen.getByRole('article', { name: job.title })).toBeInTheDocument());
+  });
+
   it('shows a loading indicator before the listings arrive', async () => {
     resolveJobs();
     renderComponent();
