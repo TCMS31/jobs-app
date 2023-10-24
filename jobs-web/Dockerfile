@@ -30,7 +30,7 @@ COPY --from=build /app/build /usr/share/nginx/html
 # uses and run on 8080 so no capability to bind a low port is required.
 RUN sed -i 's/listen\s*80;/listen 8080;/' /etc/nginx/conf.d/default.conf \
   && sed -i '/^user /d' /etc/nginx/nginx.conf \
-  && sed -i 's#/var/run/nginx.pid#/tmp/nginx.pid#' /etc/nginx/nginx.conf \
+  && sed -i 's#^pid .*;#pid /tmp/nginx.pid;#' /etc/nginx/nginx.conf \
   && chown -R nginx:nginx /usr/share/nginx/html /var/cache/nginx
 
 USER nginx

@@ -45,6 +45,7 @@ services:
   api:
     build:
       context: ./jobs-server
+    init: true
     environment:
       PORT: 8080
       DATABASE_URL: postgresql://${POSTGRES_USER:-jobs}:${POSTGRES_PASSWORD:-jobs}@db:5432/${POSTGRES_DB:-jobs-db}
