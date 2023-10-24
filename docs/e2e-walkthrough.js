@@ -1,7 +1,7 @@
 /**
  * Drives the running application in a real browser and prints what it observed. Used to
  * verify the authentication and application flows end to end, and to capture the
- * screenshots in docs/screenshots at 1440x900.
+ * screenshots in docs/screenshots at 1440x900 (desktop) and 390x844 (phone).
  *
  * Prerequisites: the API and the web client both running, a seeded database, and
  * Playwright available:
@@ -24,7 +24,7 @@ try {
 
 const BASE = process.env.WEB_URL || 'http://localhost:3000';
 const API = process.env.API_ORIGIN || 'http://localhost:8080';
-const SHOTS = path.join(__dirname, 'screenshots');
+const SHOTS = process.env.SHOTS_DIR || path.join(__dirname, 'screenshots');
 const EMAIL = process.env.DEMO_EMAIL || 'johndoe@example.com';
 const PASSWORD = process.env.DEMO_PASSWORD || 'abcd1234';
 
@@ -32,7 +32,7 @@ const step = (name, detail) => console.log(`[${name}] ${detail}`);
 
 (async () => {
   const browser = await chromium.launch();
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
 
   const apiRequests = [];
@@ -59,13 +59,14 @@ const step = (name, detail) => console.log(`[${name}] ${detail}`);
     'bad-login',
     `message="${(await page.textContent('[role="alert"]')).trim()}" path=${new URL(page.url()).pathname}`
   );
+  await page.waitForSelector('button[type="submit"]:not([disabled])');
   await page.screenshot({ path: `${SHOTS}/03-sign-in.png` });
 
   // 3. Real sign-in.
   await page.fill('#password', PASSWORD);
   await page.click('button[type="submit"]');
   await page.waitForSelector('text=Open roles');
-  await page.waitForSelector('.MuiCard-root');
+  await page.waitForSelector('article');
   step('login', `landed on ${new URL(page.url()).pathname}`);
 
   const authenticated = apiRequests.filter((r) => r.url.includes('/api/jobs'));
@@ -82,18 +83,18 @@ const step = (name, detail) => console.log(`[${name}] ${detail}`);
   const applyButtons = page.locator('button:has-text("Apply to job")');
   const before = await applyButtons.count();
   const unapplied = page
-    .locator('.MuiCard-root')
+    .locator('article')
     .filter({ has: page.locator('button:has-text("Apply to job")') })
     .first();
   const title = (await unapplied.locator('h2').textContent()).trim();
   // Re-locate by title: the card stops matching "has an Apply button" the moment it is
   // clicked, so a filter-based locator would drift to a different card.
-  const card = page.locator('.MuiCard-root').filter({ hasText: title });
+  const card = page.locator('article').filter({ hasText: title });
 
   await card.locator('button:has-text("Apply to job")').click();
   await card.locator('button:has-text("Applied")').waitFor();
   step('apply', `"${title}": apply buttons ${before} -> ${await applyButtons.count()}`);
-  step('apply-count', `applicants line now: ${(await card.locator('span.MuiTypography-caption').textContent()).trim()}`);
+  step('apply-count', `applicants line now: ${(await card.locator('.applicant-count').textContent()).trim()}`);
 
   // Park the pointer away from the card so the screenshot is not of a hover state.
   await page.mouse.move(0, 0);
@@ -106,7 +107,7 @@ const step = (name, detail) => console.log(`[${name}] ${detail}`);
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForSelector('text=Open roles');
   const stillApplied = await page
-    .locator('.MuiCard-root')
+    .locator('article')
     .filter({ hasText: title })
     .locator('button:has-text("Applied")')
     .count();
@@ -123,6 +124,20 @@ const step = (name, detail) => console.log(`[${name}] ${detail}`);
   // 7. And the protected route is protected again.
   await page.goto(`${BASE}/jobs`, { waitUntil: 'networkidle' });
   step('route-guard-after-logout', `GET /jobs -> ${new URL(page.url()).pathname}`);
+
+  // 8. The same two screens on a phone.
+  const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+  const mobile = await phone.newPage();
+
+  await mobile.goto(`${BASE}/signin`, { waitUntil: 'networkidle' });
+  await mobile.screenshot({ path: `${SHOTS}/06-mobile-sign-in.png` });
+  await mobile.fill('#email', EMAIL);
+  await mobile.fill('#password', PASSWORD);
+  await mobile.click('button[type="submit"]');
+  await mobile.waitForSelector('article');
+  await mobile.waitForTimeout(400);
+  await mobile.screenshot({ path: `${SHOTS}/05-mobile-listings.png` });
+  step('mobile', `articles rendered at 390px: ${await mobile.locator('article').count()}`);
 
   step('console', `browser console errors: ${consoleErrors.length === 0 ? 'none' : JSON.stringify(consoleErrors)}`);
 
