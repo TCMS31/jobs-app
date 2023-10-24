@@ -30,8 +30,7 @@ const optionalNumber = (name: string, fallback: number): number => {
 
 /**
  * Validated configuration. Reading this module throws at boot rather than letting the
- * process start with, for example, an unset JWT_KEY — which previously produced a server
- * that signed tokens with one secret and verified them against `undefined`.
+ * process start with, for example, an unset JWT_KEY and issue tokens it cannot verify.
  */
 export const env = {
   port: optionalNumber('PORT', 8080),

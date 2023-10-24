@@ -22,9 +22,7 @@ export const SigninForm = (): JSX.Element => {
         const { data } = await login(values);
         const { authtoken, userId, name } = data.payload;
 
-        // Navigating only after a session has actually been established. The previous
-        // version destructured the response, stored whatever it found and navigated
-        // regardless, so a failed or malformed login still landed on the jobs page.
+        // A 200 without a token must not reach the jobs page with an empty session.
         if (!authtoken || !userId) {
           setStatus('Sign in failed, please try again.');
 

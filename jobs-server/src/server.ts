@@ -2,7 +2,7 @@ import { app } from './app';
 import { env } from './config/env';
 import { prisma } from './lib/prisma';
 
-const server = app.listen(env.port, () => console.log(`🚀 Server started at: http://localhost:${env.port}`));
+const server = app.listen(env.port, () => console.log(`API listening on http://localhost:${env.port}`));
 
 const shutdown = (signal: string): void => {
   console.log(`\n${signal} received, shutting down.`);

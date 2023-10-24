@@ -17,8 +17,6 @@ const formatDate = (value: string): string =>
 export const Job = ({ job, onApplied }: Props): JSX.Element => {
   const [isApplying, setIsApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // `hasApplied` is computed by the API for the signed-in caller. The client used to work
-  // it out by searching a list of every applicant's id that the API sent to everybody.
   const handleApply = useCallback(async () => {
     setIsApplying(true);
     setError(null);

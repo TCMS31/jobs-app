@@ -9,8 +9,7 @@ import RESPONSE_CODES from './constants/responseCodes';
 
 /**
  * Builds the Express application without binding a port, so tests can drive it in
- * process. Binding lives in `server.ts`; importing this module previously started a
- * listener, which left the test runner hanging after the last assertion.
+ * process and the runner can exit after the last assertion. Binding lives in `server.ts`.
  */
 export const createApp = (): Express => {
   const app = express();

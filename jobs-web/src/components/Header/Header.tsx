@@ -20,7 +20,6 @@ export const Header = (): JSX.Element => {
               <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' }, opacity: 0.85 }}>
                 Signed in as {session.name || 'you'}
               </Typography>
-              {/* Signing out was simply not implemented: there was no way to end a session. */}
               <Button color="inherit" variant="outlined" size="small" onClick={signOut}>
                 Sign out
               </Button>

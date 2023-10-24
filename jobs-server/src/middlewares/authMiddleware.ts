@@ -32,10 +32,8 @@ const unauthorized = (res: Response): void =>
 /**
  * Verifies the bearer token and attaches the caller's id to the request.
  *
- * The signing key comes from the validated config, so signing and verification can no
- * longer disagree — previously login fell back to a literal `'jwtsecret'` while this
- * middleware verified against `process.env.JWT_KEY`, which meant every protected route
- * rejected every freshly issued token whenever JWT_KEY was unset.
+ * Signing (userService) and verification read the same key from the validated config,
+ * so the two cannot disagree. Only HS256 is accepted, matching what login issues.
  */
 const authenticateToken = (req: Request, res: Response, next: NextFunction): void => {
   const token = readToken(req);
@@ -44,7 +42,7 @@ const authenticateToken = (req: Request, res: Response, next: NextFunction): voi
     return unauthorized(res);
   }
 
-  jwt.verify(token, env.jwtKey, (error, decoded) => {
+  jwt.verify(token, env.jwtKey, { algorithms: ['HS256'] }, (error, decoded) => {
     if (error || !decoded) {
       return unauthorized(res);
     }

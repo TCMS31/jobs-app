@@ -20,9 +20,8 @@ const apiService = (): AxiosInstance => {
     },
   });
 
-  // The token is read per request, not once when this module is first imported. At import
-  // time the user has not signed in yet, so the old code baked `undefined` into the
-  // instance defaults and every authenticated call went out with no credential.
+  // Read per request: at import time nobody has signed in yet, so a token captured in the
+  // instance defaults would be `undefined` for the rest of the session.
   instance.interceptors.request.use((config) => {
     const token = authStorage.token();
 

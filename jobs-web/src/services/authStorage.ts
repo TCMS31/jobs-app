@@ -18,10 +18,8 @@ const COOKIE_OPTIONS: Cookies.CookieAttributes = {
 /**
  * The single source of truth for the signed-in session.
  *
- * Authentication state used to live in two places at once — a boolean in localStorage
- * and the token in a cookie — which could disagree: clearing the cookie left the app
- * convinced it was signed in, rendering a page whose every request then failed with 401.
- * Everything now derives from the token.
+ * Signed-in state is derived from the token cookie rather than stored next to it, so a
+ * cleared or expired cookie cannot leave the app believing it still has a session.
  */
 export const authStorage = {
   read(): Session | null {
