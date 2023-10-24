@@ -35,11 +35,11 @@ const APPLICANTS_BY_TITLE: Record<string, string[]> = {
 
 const seedUsers = async (): Promise<void> => {
   await Promise.all(
-    USERS.map((user) =>
+    USERS.map(async (user) =>
       prisma.user.upsert({
         where: { email: user.email },
         update: {},
-        create: { ...user, password: encryptData(user.password) },
+        create: { ...user, password: await encryptData(user.password) },
       })
     )
   );

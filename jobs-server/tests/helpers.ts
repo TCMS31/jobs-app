@@ -22,7 +22,7 @@ export const createUserAndLogin = async (prefix: string): Promise<TestUser> => {
   const password = 'abcd1234';
 
   const user = await prisma.user.create({
-    data: { name: 'Test User', email, password: encryptData(password) },
+    data: { name: 'Test User', email, password: await encryptData(password) },
   });
 
   const response = await api().post('/api/auth/login').send({ email, password }).expect(200);

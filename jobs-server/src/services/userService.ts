@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 
 import { env } from '../config/env';
@@ -6,16 +7,22 @@ import { compareData, encryptData } from '../helpers/encryptionHelpers';
 import { AuthSession, UserCredentials, UserRegistration } from '../interfaces/user';
 import { prisma } from '../lib/prisma';
 
+/**
+ * The unique index on email is the only check: a look-up first would still let two
+ * simultaneous sign-ups for one address both pass it, and the loser surfaced as a 500.
+ */
 export const registerUser = async ({ name, email, password }: UserRegistration): Promise<void> => {
-  const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+  try {
+    await prisma.user.create({
+      data: { name, email, password: await encryptData(password) },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw new ConflictError('User already exists');
+    }
 
-  if (existing) {
-    throw new ConflictError('User already exists');
+    throw error;
   }
-
-  await prisma.user.create({
-    data: { name, email, password: encryptData(password) },
-  });
 };
 
 /**
@@ -32,7 +39,7 @@ export const authenticateUser = async ({ email, password }: UserCredentials): Pr
   // wrong password take the same amount of time and cannot be told apart by timing.
   const hash = user?.password ?? '$2b$10$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvalidinv';
 
-  if (!compareData(password, hash) || !user) {
+  if (!(await compareData(password, hash)) || !user) {
     throw new UnauthorizedError('Invalid email/password');
   }
 

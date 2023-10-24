@@ -61,6 +61,19 @@ describe('POST /api/auth/signup', () => {
     expect(response.body.message).to.equal('User already exists');
   });
 
+  it('lets exactly one of several simultaneous sign-ups for an address win', async () => {
+    const email = uniqueEmail('signup-race');
+    const payload = { name: 'John Doe', email, password: 'abcd1234' };
+
+    const responses = await Promise.all(
+      Array.from({ length: 4 }, () => api().post('/api/auth/signup').send(payload))
+    );
+    const statuses = responses.map((response) => response.status).sort();
+
+    expect(statuses).to.deep.equal([RESPONSE_CODES.ok, 409, 409, 409]);
+    expect(await prisma.user.count({ where: { email } })).to.equal(1);
+  });
+
   it('rejects a password shorter than eight characters', async () => {
     await api()
       .post('/api/auth/signup')
