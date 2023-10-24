@@ -4,7 +4,7 @@ import { app } from '../src/app';
 import { encryptData } from '../src/helpers/encryptionHelpers';
 import { prisma } from '../src/lib/prisma';
 
-export const api = (): supertest.SuperTest<supertest.Test> => supertest(app);
+export const api = (): ReturnType<typeof supertest> => supertest(app);
 
 export const uniqueEmail = (prefix: string): string =>
   `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.test`;
