@@ -2,6 +2,32 @@
 
 ## Getting started
 
+This is a full-stack web application that combines a React-based frontend with a Node.js Express backend, and it uses PostgreSQL for the database. In this project, users can browse job listings and apply for jobs. Upon applying, the "Apply to Job" button transforms into "Applied," and users can also sign up and log in to manage their applications and access additional features.
+
+**Features**
+- Job Listings: View a list of available job opportunities.
+- Job Application: Users can apply for jobs by clicking the "Apply to Job" button, which changes to "Applied" upon submission.
+- User Authentication: Register and log in to the platform to manage job applications and access personalized features.
+
+**Technologies Used**
+- Frontend: React
+- Backend: Node.js with Express
+- Database: PostgreSQL
+
+**Getting Started**
+To get started with this project, follow the instructions below:
+
+**Prerequisites**
+- Node.js installed
+- npm (Node Package Manager) installed
+- PostgreSQL installed and running
+
+
+
+## UI
+<img width="1680" alt="Screenshot 2023-10-25 at 6 12 41 AM" src="https://github.com/Chsaleem31/jobs-app/assets/119432487/c32d8997-8da8-4fae-ad8f-27300d9d6b2e">
+
+
 ### Clone the Repository:
 ```
 git clone [<repository-url>](https://github.com/Chsaleem31/jobs-app.git)
@@ -71,37 +97,39 @@ yarn run test
 
 ## Installation
 
-```sh
+Install dependencies using yarn:
+
+```
 npm install --global yarn
-yarn
+yarn install
 ```
 
 ## Available Scripts
 
-In the project directory, you can run:
+## Run the app in the development mode.
 
-### `yarn start`
+```
+yarn start
+```
 
-Runs the app in the development mode.\
 Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
 
 The page will reload if you make edits.\
 You will also see any lint errors in the console.
 
-### `yarn test`
 
-Launches the test runner in the interactive watch mode.\
+
+
+## Running test cases
+
+Quit the server if it is running.
+Run following command in the terminal.
+
+```
+yarn run test
+```
 See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
 
-### `yarn build`
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-## UI
-<img width="1680" alt="Screenshot 2023-10-25 at 6 12 41 AM" src="https://github.com/Chsaleem31/jobs-app/assets/119432487/c32d8997-8da8-4fae-ad8f-27300d9d6b2e">
