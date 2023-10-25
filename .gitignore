@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+
+# Test and coverage output
+coverage/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor and OS noise
+.DS_Store
+.idea/
+.vscode/
+
+# Stray virtualenv left in the repo root; not part of this project.
+project_venv/
