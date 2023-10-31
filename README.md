@@ -1,151 +1,155 @@
 # Jobs Board
 
-A small job board: a Node/Express + Prisma API over PostgreSQL, and a React client that
-lists open roles and lets a signed-in user apply to them. Applying is idempotent — the
-button becomes "Applied" and the record is enforced unique at the database level.
+A two-package job board: an Express + Prisma API over PostgreSQL, and a React client that
+lists open roles and lets a signed-in user apply with one click. Applying is idempotent —
+the button flips to "Applied", and a second click (or a second racing request) changes
+nothing, because the database will not accept a duplicate. It is deliberately narrow: no
+employer side, no job creation, no profile page.
 
-It is deliberately narrow. There is no employer side, no job creation UI, and no search
-box; the API supports title filtering and cursor paging, and the client uses the paging.
+![Job listings, signed in](docs/screenshots/01-job-listings.png)
 
-## Screenshots
+| After applying | Sign in, rejected credentials | A single listing |
+| --- | --- | --- |
+| ![Applied state](docs/screenshots/02-applied-state.png) | ![Sign in](docs/screenshots/03-sign-in.png) | ![Job card](docs/screenshots/04-job-card-applied.png) |
 
-Captured with Playwright at 1440x900 against the running app and a seeded database
-(`docs/e2e-walkthrough.js`).
+All four were captured by [`docs/e2e-walkthrough.js`](docs/e2e-walkthrough.js) driving the
+real app with Playwright at 1440x900 against a seeded database — not mockups. Its output is
+in [`docs/e2e-walkthrough.txt`](docs/e2e-walkthrough.txt).
 
-| Job listings, signed in | After applying |
-| --- | --- |
-| ![Job listings](docs/screenshots/01-job-listings.png) | ![Applied state](docs/screenshots/02-applied-state.png) |
+## About the demo data
 
-| Sign in, rejected credentials | A single listing |
-| --- | --- |
-| ![Sign in](docs/screenshots/03-sign-in.png) | ![Job card](docs/screenshots/04-job-card-applied.png) |
+The roles above are **invented placeholder content**, not real postings. They are a
+hand-written array in
+[`jobs-server/src/constants/jobs.ts`](jobs-server/src/constants/jobs.ts), loaded by
+`prisma db seed`: 12 listings, 6 users, 21 applications between them. The `Job` model is
+correspondingly thin — title, description, experience level, employment type, timestamps.
+No company, location, salary or closing date, so this is not a model of a real job posting
+and should not be read as one. It exists to give the listing, the paging and the applied
+state something to render.
 
-## Architecture
+One leftover is worth naming rather than hiding: `jobs-web/package-lock.json` still records
+the package name `blogs-web`, from the starter the client was built on — no effect on the
+build, but it is there if you go looking.
 
-The API is layered: routes bind HTTP, controllers validate and translate, services hold
-the business rules, and only the service layer talks to Prisma. Dependencies point inward
-— a service knows nothing about Express, and a controller knows nothing about SQL.
+## The data model
+
+Three tables. The interesting one is `Application`, which is a join table and not an array.
 
 ```mermaid
-flowchart TB
-  subgraph client["jobs-web (React, CRA)"]
-    pages["Pages<br/>Signin · Signup · Jobs"]
-    components["Components<br/>Header · Job · TextInput · Forms"]
-    context["AuthContext<br/>session state"]
-    services["Services<br/>authService · jobService"]
-    base["baseService<br/>axios instance + interceptors"]
-    storage["authStorage<br/>cookie-backed session"]
+erDiagram
+    User ||--o{ Application : submits
+    Job ||--o{ Application : receives
 
-    pages --> components
-    pages --> context
-    components --> services
-    context --> storage
-    services --> base
-    base --> storage
-  end
-
-  subgraph api["jobs-server (Express)"]
-    routes["Routes<br/>/api/auth · /api/jobs"]
-    middleware["authMiddleware<br/>JWT verification"]
-    controllers["Controllers<br/>validate · shape response"]
-    svc["Services<br/>userService · jobService"]
-    prismaLayer["Prisma client<br/>single shared instance"]
-
-    routes --> middleware
-    middleware --> controllers
-    routes --> controllers
-    controllers --> svc
-    svc --> prismaLayer
-  end
-
-  db[("PostgreSQL<br/>User · Job · Application")]
-
-  base -->|"HTTPS + authtoken header"| routes
-  prismaLayer --> db
+    User {
+        string id PK "uuid"
+        string email UK
+        string name
+        string password "bcrypt hash, never serialised"
+        datetime createdAt
+    }
+    Job {
+        string id PK "uuid"
+        string title
+        string description
+        string experienceLevel
+        string employmentType
+        datetime createdAt "indexed with id, drives the keyset cursor"
+        datetime updatedAt
+    }
+    Application {
+        string id PK "uuid"
+        string userId FK "unique together with jobId"
+        string jobId FK "indexed for the applicant-count aggregate"
+        datetime createdAt
+    }
 ```
 
-## Applying to a job
+Two constraints in [`prisma/schema.prisma`](jobs-server/prisma/schema.prisma) carry most
+of the weight. `@@unique([userId, jobId])` on `Application` makes a duplicate impossible at
+the database level, so idempotency is not something the application code has to get right
+under concurrency — it only has to decide what to do with the rejection. `@@index([createdAt, id])`
+on `Job` means the newest-first listing serves both its ordering and its cursor seek from
+one index.
 
-The applicant is always taken from the verified token, never from the request body, and
-the unique `(userId, jobId)` constraint makes a duplicate impossible even when two
-requests race.
+The listing endpoint returns `hasApplied` for the caller and an `applicantCount`, and no
+applicant identifiers at all — pinned by the cross-user test
+`never discloses which users applied to a job`.
+
+## One click, one application
+
+The applicant is taken from the verified token, never from the request body, and the unique
+constraint decides the outcome when two requests race.
 
 ```mermaid
 sequenceDiagram
-  autonumber
-  actor User
-  participant Web as jobs-web
-  participant Store as authStorage
-  participant API as jobs-server
-  participant DB as PostgreSQL
+    autonumber
+    actor User
+    participant Card as Job card
+    participant Axios as baseService
+    participant API as POST /api/jobs/apply
+    participant DB as PostgreSQL
 
-  User->>Web: submit email + password
-  Web->>API: POST /api/auth/login
-  API->>DB: SELECT user by email
-  DB-->>API: user row (with bcrypt hash)
-  API->>API: bcrypt.compare, sign JWT
-  API-->>Web: { authtoken, userId, name }
-  Note over Web: no token means no navigation
-  Web->>Store: write session cookies
-  Web-->>User: redirect to /jobs
-
-  Web->>API: GET /api/jobs
-  Note over Web,API: the interceptor reads the cookie per request
-  API->>API: verify JWT, attach userId
-  API->>DB: page of jobs + counts + this user's applications
-  DB-->>API: rows
-  API-->>Web: jobs with hasApplied and applicantCount
-
-  User->>Web: click "Apply to job"
-  Web->>API: POST /api/jobs/apply { jobId }
-  API->>DB: INSERT INTO Application (userId from token)
-  alt already applied
-    DB-->>API: unique violation
-    API->>API: treat as success
-  else first application
-    DB-->>API: inserted
-  end
-  API-->>Web: 200
-  Web-->>User: button becomes "Applied"
+    User->>Card: click "Apply to job"
+    Card->>Axios: applyToJob(jobId)
+    Axios->>Axios: request interceptor reads the cookie now, not at import
+    Axios->>API: POST with jobId and the authtoken header
+    API->>API: verify JWT, take userId from the token
+    Note over API: a userId in the request body is ignored
+    API->>DB: SELECT job by id
+    alt job does not exist
+        DB-->>API: no row
+        API-->>Axios: 404 Job not found
+        Axios-->>Card: reject
+        Card-->>User: inline error, button stays "Apply to job"
+    else job exists
+        API->>DB: INSERT INTO Application
+        alt unique userId+jobId violated
+            DB-->>API: Prisma P2002
+            API->>API: already applied, so report success
+        else first application
+            DB-->>API: row created
+        end
+        API-->>Axios: 200
+        Axios-->>Card: resolve
+        Card-->>User: button becomes "Applied" and disables
+    end
 ```
 
-## Quickstart
+Three tests in `tests/jobs.test.ts` cover the branches: `is idempotent: applying twice
+leaves exactly one application`, `survives concurrent applications from the same user
+without duplicating` (five simultaneous requests, all expected to return 200) and
+`attributes the application to the token holder, ignoring a userId in the body`.
 
-Requires Node 18.16 or newer (verified on 18.16 and 22) and a running PostgreSQL 14+.
+## Running it
+
+Needs Node 18.16 or newer and a PostgreSQL 14+ you can write to. Verified here on Node
+22.22 against PostgreSQL 17.
 
 ```bash
-# API
 cd jobs-server
 cp .env.example .env            # then set JWT_KEY — the server refuses to boot without it
-yarn install
-yarn prisma migrate deploy
+yarn install && yarn prisma migrate deploy
 yarn seed                       # 6 users, 12 roles, 21 applications
 yarn dev                        # http://localhost:8080
 
-# Client, in a second terminal
-cd jobs-web
+cd ../jobs-web                  # second terminal
 cp .env.example .env
-yarn install
-yarn start                      # http://localhost:3000
+yarn install && yarn start      # http://localhost:3000
 ```
 
-Sign in with the seeded demo account: `johndoe@example.com` / `abcd1234`.
+Sign in with a seeded demo account: `johndoe@example.com` / `abcd1234`.
 
-With Docker (see [Docker](#docker) for status):
+`JWT_KEY` has no default and no fallback: `src/config/env.ts` reads it at import and throws
+if it is missing, so a misconfigured process fails at boot rather than issuing tokens it
+cannot verify. Generate one with `openssl rand -hex 32`.
 
-```bash
-cp .env.example .env            # set JWT_KEY
-docker compose up --build       # migrations run automatically before the API starts
-docker compose --profile seed up seed
-```
-
-## Configuration
+## Environment
 
 ### `jobs-server/.env`
 
 | Variable | Required | Default | Purpose |
 | --- | --- | --- | --- |
-| `JWT_KEY` | **yes** | none | Secret used to sign and verify JWTs. The process throws on boot if unset. |
+| `JWT_KEY` | **yes** | none | Secret used to sign and verify JWTs. Throws on boot if unset. |
 | `DATABASE_URL` | **yes** | none | Postgres connection string for Prisma. |
 | `PORT` | no | `8080` | Port the API listens on. |
 | `REACT_APP_URL` | no | `http://localhost:3000` | Origin allowed by CORS. |
@@ -155,122 +159,41 @@ docker compose --profile seed up seed
 
 ### `jobs-web/.env`
 
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `REACT_APP_API_URL` | **yes** | none | Base URL of the API, including `/api`. Inlined at build time. |
-| `PORT` | no | `3000` | Port the dev server listens on. |
+`REACT_APP_API_URL` (**required** — base URL of the API including `/api`, inlined into the
+bundle at build time) and `PORT` (optional, defaults to `3000`).
 
-### Root `.env` (Docker Compose only)
+### Root `.env` — Docker Compose only
 
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `JWT_KEY` | **yes** | none | Passed to the API container; Compose refuses to start without it. |
-| `POSTGRES_USER` | no | `jobs` | Database user created by the `db` service. |
-| `POSTGRES_PASSWORD` | no | `jobs` | Database password. |
-| `POSTGRES_DB` | no | `jobs-db` | Database name. |
-| `API_PORT` | no | `8080` | Host port mapped to the API. |
-| `WEB_PORT` | no | `3000` | Host port mapped to the web container. |
-| `PUBLIC_API_URL` | no | `http://localhost:8080/api` | API URL baked into the client bundle at build time. |
-| `WEB_ORIGIN` | no | `http://localhost:3000` | Origin the API accepts via CORS. |
+`JWT_KEY` (required, Compose refuses to interpolate without it), `POSTGRES_USER`,
+`POSTGRES_PASSWORD`, `POSTGRES_DB`, `API_PORT`, `WEB_PORT`, `PUBLIC_API_URL`, `WEB_ORIGIN`.
+Defaults and comments are in [`.env.example`](.env.example).
 
-## Development
+## Day-to-day commands
 
-```bash
-# jobs-server
-yarn dev           # nodemon
-yarn test          # mocha + chai + supertest — needs a database
-yarn lint          # eslint
-yarn format        # prettier
-yarn typecheck     # tsc --noEmit
-yarn build         # tsc -> dist/
-yarn benchmark     # listing benchmark, see Design notes
+| | `jobs-server` | `jobs-web` |
+| --- | --- | --- |
+| run | `yarn dev` | `yarn start` |
+| tests | `yarn test` (mocha, needs a database) | `yarn test` / `yarn test:ci` |
+| lint | `yarn lint` | `yarn lint` |
+| format | `yarn format` / `yarn format:check` | `yarn format` / `yarn format:check` |
+| types | `yarn typecheck` | `yarn typecheck` |
+| build | `yarn build` → `dist/` | `yarn build` |
+| other | `yarn migrate`, `yarn seed`, `yarn benchmark` | `yarn coverage` |
 
-# jobs-web
-yarn start
-yarn test          # jest + React Testing Library (watch mode)
-yarn test:ci       # single run
-yarn lint
-yarn format
-yarn typecheck
-```
+**61 tests across 7 files** — 31 on the API (mocha, chai, supertest) and 30 on the client
+(Jest and React Testing Library). Last run here: `31 passing (3s)`, and
+`Test Suites: 5 passed / Tests: 30 passed`.
 
-The API tests write real rows. Set `TEST_DATABASE_URL` to a throwaway database so the
-suite cannot leave fixtures in your development data; the tests create everything they
-need and do not depend on the seed having been run.
+The API tests are integration tests and write real rows. Set `TEST_DATABASE_URL` to a
+throwaway database so a run cannot leave fixtures in your development data; the suites
+create everything they need and do not assume the seed has run.
 
-## Project structure
+## What the listing endpoint costs
 
-```
-jobs-server/
-  prisma/
-    migrations/           # SQL migrations, including the backfill from the old array column
-    schema.prisma         # User, Job, Application
-    seed.ts               # demo users, roles and applications
-  scripts/
-    benchmarkListing.ts   # reproduces the numbers in Design notes
-  src/
-    config/env.ts         # validated environment; throws on boot if JWT_KEY is missing
-    lib/prisma.ts         # the single Prisma client for the process
-    routes/               # HTTP binding only
-    middlewares/          # JWT verification
-    controllers/          # validation and response shaping
-    services/             # business rules; the only layer that touches Prisma
-    validationSchemas/    # yup schemas for bodies and query strings
-    errors/               # HttpError and friends, mapped to status codes
-    helpers/              # response envelope, async error wrapper, bcrypt
-    app.ts                # builds the Express app (does not listen)
-    server.ts             # binds the port, handles graceful shutdown
-  tests/                  # mocha suites: auth, jobs, ownership
-
-jobs-web/
-  src/
-    pages/                # Signin, Signup, Jobs (each with __tests__)
-    components/           # Header, Job, TextInput, Forms, FormContainer, AppRoutes
-    contexts/AuthContext  # session state, derived from the stored token
-    services/
-      authStorage.ts      # the single source of truth for the session
-      baseService.ts      # axios instance; attaches the token per request
-      authService.ts      # login / signup
-      jobService.ts       # list / apply
-    schemas/              # yup validation, mirroring the API rules
-    theme.ts              # one MUI theme for the whole app
-    __mocks__/axios.js    # no test can make a real network call
-
-docs/
-  screenshots/            # the images above
-  e2e-walkthrough.js      # Playwright script that captured them
-  e2e-walkthrough.txt     # its output
-  listing-benchmark.txt   # output of yarn benchmark
-```
-
-## Design notes
-
-**Layering.** Business logic lives in `src/services`. Controllers validate input, call a
-service and shape a response; they contain no Prisma calls. This is what makes the
-ownership rule testable in isolation: "the applicant is the token holder" is one line in
-a controller, not a detail buried in a query.
-
-**One Prisma client.** The codebase previously constructed `new PrismaClient()` in three
-modules, giving the process three connection pools against one database. There is now a
-single instance in `src/lib/prisma.ts`.
-
-**Applications are a join table, not an array.** `Job.applications` used to be a
-`TEXT[]` of user ids. That shape caused three separate problems, and replacing it fixed
-all three at once:
-
-- *Correctness.* Appending an applicant meant reading the array, pushing to it and
-  writing it back. Two concurrent applications could lose one another's write. A unique
-  `(userId, jobId)` index now makes duplicates impossible, and the loser of a race is
-  reported as success because applying twice should be idempotent.
-- *Disclosure.* The array was serialised to every client on every listing request, so any
-  signed-in user could read exactly who had applied to what. The API now returns
-  `hasApplied` for the caller and an `applicantCount`, and no applicant ids at all.
-- *Cost.* The listing had no `take`, no `select` and no index, so it returned every row
-  with every applicant id attached.
-
-**The measured bottleneck.** `GET /api/jobs` was the hot path and the array was what made
-it expensive. `yarn benchmark` builds a copy of the old schema alongside the new one and
-measures both; this is the output of a real run, reproduced in
+`GET /api/jobs` is the hot path. `jobs-server/scripts/benchmarkListing.ts` (`yarn
+benchmark`) builds a copy of the *previous* table shape — a `TEXT[]` of applicant ids on
+each job row, returned in full with no paging — next to the current one, so the comparison
+is measured rather than estimated. Committed output, in
 [`docs/listing-benchmark.txt`](docs/listing-benchmark.txt):
 
 ```
@@ -284,71 +207,114 @@ AFTER   HTTP response size                          7.7 KiB
 AFTER   applicant ids disclosed to the caller       0
 ```
 
-That is ~150x less data over the wire and an order of magnitude less time, and the gap
-widens with the number of applicants because the old payload grew with them while the new
-one does not.
+Re-running it elsewhere reproduced the payload sizes and disclosure counts exactly
+(1151.8 KiB → 7.7 KiB, 25000 ids → 0) and gave 32.5 ms → 2.6 ms for the timings. Treat the
+millisecond figures as hardware-dependent and the ratio as the point: roughly 150x less
+data on the wire. The gap widens with applicant count, because the old payload grew with it
+and the new one does not.
 
-**Cursor paging, not offset.** `skip` makes Postgres walk and discard every preceding
-row, so page 500 costs five hundred pages of work. The listing pages on the indexed
-`(createdAt, id)` pair instead, which costs the same for page 500 as for page 1.
+Three things produce the "after" number:
 
-**Three queries, not N+1.** A page of 20 jobs needs the jobs, their applicant counts, and
-which of them this caller has applied to. That is one `findMany`, one `groupBy` and one
-scoped `findMany` — three queries regardless of page size, rather than two extra queries
-per job.
+- **`select` instead of everything** — the six fields the card actually renders.
+- **A cursor instead of an offset.** `skip` makes Postgres walk and discard every preceding
+  row, so page 500 costs five hundred pages of work. Seeking on the indexed
+  `(createdAt, id)` pair costs the same for page 500 as for page 1.
+- **Three queries, not 1 + N.** A page of 20 needs the jobs, their applicant counts, and
+  which of them this caller applied to: one `findMany`, one `groupBy`, one scoped
+  `findMany`. That count does not change with page size.
 
-**The session has one home.** Authentication state used to live in two places: a boolean
-in `localStorage` and the token in a cookie. They could disagree — clearing the cookie
-left the app convinced it was signed in, rendering a page whose every request then failed.
-Everything now derives from `authStorage`, and a 401 from any request clears the session
-and returns the user to sign-in.
+No cache and no queue: at this size they would be decoration, and both would need
+invalidating on every application.
 
-**The token is read per request.** `baseService` reads the cookie inside an axios request
-interceptor. It used to read it once when the module was first imported — before anyone
-had signed in — so the value baked into the instance defaults was permanently `undefined`.
-`getJobs` papered over this by passing the header explicitly; `applyToJob` did not, so
-applying never worked. `src/services/__tests__/baseService.test.ts` pins the behaviour.
+## Decisions worth explaining
 
-**Extension seam.** `src/services/jobService.ts` is the seam a future developer would
-actually need. `listJobs` takes a single options object (`userId`, `title`, `cursor`,
-`limit`) and returns a `JobPage`; adding a filter — employment type, experience level,
-posted-after — means one field on `ListJobsOptions`, one clause in `buildWhere` and one
-line in the query schema, with no change to the controller, the route or the client's
-service call. The yup schemas in `validationSchemas/` are the matching seam for input
-rules.
+**Layering, one direction.** `routes → middlewares → controllers → services → lib/prisma`.
+Routes bind HTTP. Controllers validate with yup and shape the response envelope, and make
+no Prisma calls. Services hold the rules, are the only layer that touches the database, and
+raise typed failures from `errors/httpError.ts` (`ConflictError`, `NotFoundError`,
+`UnauthorizedError`) which `helpers/exceptionHelper.ts` maps to status codes — an
+unexpected 500 is logged in full and answered generically, while 4xx keep their message.
+`src/lib/prisma.ts` exports the single client every service imports, so the process holds
+one connection pool.
 
-**Failing closed on configuration.** `src/config/env.ts` validates the environment at
-import time and throws if `JWT_KEY` is absent. Previously login signed tokens with a
-fallback literal while the middleware verified against `process.env.JWT_KEY`; with the
-variable unset, login succeeded and then every protected route rejected the token it had
-just issued.
+**The session has exactly one home.** `jobs-web/src/services/authStorage.ts` is the source
+of truth and `isAuthenticated` is derived from the stored token, so the two cannot
+disagree. A 401 from any request clears the session through the axios response interceptor
+and hands control to `setUnauthorizedHandler`, which returns the user to sign-in.
 
-## Docker
+**The token is read per request**, inside a `baseService` request interceptor rather than
+baked into the instance defaults. `src/services/__tests__/baseService.test.ts` imports the
+module before any sign-in and then asserts the header appears, including
+`picks up a token that changed since the previous request`.
 
-`Dockerfile`s for both services and a `docker-compose.yml` are included: multi-stage
-builds, non-root runtime users, healthchecks, and a one-shot `migrate` service that the
-API waits on. **They have not been built or booted** — the Docker daemon was unavailable
-in the environment where this work was done, so only `docker compose config` (which parses
-and starts nothing) was run against them. Treat the images as unverified until someone
-builds them.
+**Sign-in establishes a session before it navigates.** If the response carries no token the
+form shows an error and stays put — `does NOT navigate when the response carries no token`.
 
-## Limitations
+**The extension seam is `jobService.listJobs`.** It takes one options object (`userId`,
+`title`, `cursor`, `limit`) and returns a `JobPage`. Adding a filter — employment type,
+experience level, posted-after — is one field on `ListJobsOptions`, one clause in
+`buildWhere` and one line in `listJobsSchema`, with no change to the controller, the route
+or the client's service call.
 
-- **No employer side.** Jobs can only be created by the seed script or directly in the
-  database. There is no endpoint or UI to post, edit or close a role.
+## Where things live
+
+```
+jobs-server/
+  prisma/      schema.prisma · migrations (incl. the backfill off the old array) · seed.ts
+  scripts/     benchmarkListing.ts
+  src/
+    config/    env.ts — validated at import, throws when JWT_KEY is absent
+    lib/       prisma.ts — the one client
+    routes/    HTTP binding only: /api/health, /api/auth, /api/jobs
+    services/  jobService, userService — the only layer that touches Prisma
+    app.ts     builds the Express app and does not listen
+    server.ts  binds the port, graceful shutdown on SIGINT/SIGTERM
+               (plus middlewares/, controllers/, errors/, helpers/, validationSchemas/)
+  tests/       auth.test.ts · jobs.test.ts · root.test.ts · helpers.ts · setup.ts
+
+jobs-web/src/
+  pages/       Signin · Signup · Jobs, each with __tests__
+  components/  Header · Job · TextInput · Forms · FormContainer · AppRoutes
+  contexts/    AuthContext — session state derived from authStorage
+  services/    authStorage · baseService · authService · jobService (+ __tests__)
+  schemas/     yup validation mirroring the API rules
+  theme.ts     one MUI theme · __mocks__/axios.js so no test can hit the network
+
+docs/          screenshots · e2e-walkthrough.{js,txt} · listing-benchmark.txt
+```
+
+## Docker: authored, not verified
+
+`jobs-server/Dockerfile` (multi-stage, alpine, non-root `node` user, tini as PID 1 so the
+graceful shutdown in `server.ts` receives signals, healthcheck on `/api/health`),
+`jobs-web/Dockerfile` (build → nginx on port 8080 as a non-root user, SPA `try_files`
+fallback), and a `docker-compose.yml` with a `pg_isready` healthcheck, a one-shot `migrate`
+service the API waits on, and an optional `seed` profile.
+
+**Build verified: NOT RUN — deferred, Docker off. Boot verified: NOT RUN — deferred,
+Docker off.** The daemon was unavailable where this was written, so only
+`docker compose config` — which parses and starts nothing — was run, for both the default
+and the `seed` profile. Treat the images as unbuilt.
+
+Once someone does: `cp .env.example .env` (set `JWT_KEY`), then
+`docker compose up --build` — the one-shot `migrate` service runs first — and
+`docker compose --profile seed up seed` for the demo rows.
+
+## Out of scope
+
+- **No employer side.** Roles come from the seed script or directly from the database.
+  There is no endpoint or UI to post, edit or close one.
 - **No way to withdraw an application.** Applying is one-way.
-- **Title search is API-only.** `GET /api/jobs?title=…` works and is tested; the client
-  has no search box.
-- **`contains` search does not scale.** It is a sequential scan. At a size where that
-  matters it wants a trigram index or a real full-text column, which this dataset does not
-  justify.
-- **Tokens cannot be revoked.** JWTs are stateless and valid for seven days; signing out
-  clears the client's cookies but the token itself remains valid until it expires.
-- **Session cookies are not `httpOnly`.** They are written by JavaScript so the client can
-  read them, which means a successful XSS could read the token. Moving to an `httpOnly`
-  cookie set by the API is the right fix and is not done here.
-- **No rate limiting** on sign-in or sign-up.
-- **Applicant counts are not cached.** They are aggregated per request, which is fine at
-  this size and would want a counter cache well before it is not.
-- **The API tests need a real PostgreSQL.** They are integration tests by design; there is
-  no in-memory substitute.
+- **Title search is API-only.** `GET /api/jobs?title=…` works and is tested; the client has
+  no search box.
+- **`contains` search is a sequential scan.** Fine at this size; beyond it, it wants a
+  trigram index or a full-text column, which this dataset does not justify.
+- **Tokens cannot be revoked.** JWTs are stateless and valid for seven days. Signing out
+  clears the client's cookies; the token itself stays valid until it expires.
+- **Session cookies are not `httpOnly`,** because the client reads them. A successful XSS
+  could therefore read the token. The right fix is an `httpOnly` cookie set by the API plus
+  a CSRF strategy — a change to the auth design, not made here.
+- **No rate limiting** on sign-in or sign-up. Unknown-email and wrong-password take the
+  same path and return the same message, but brute force is unthrottled.
+- **Applicant counts are aggregated per request,** not cached. **The API tests need a real
+  PostgreSQL** — they are integration tests by design.
